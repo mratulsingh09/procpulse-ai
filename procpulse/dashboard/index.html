@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProcPulse AI — Real-Time Linux Telemetry & Anomaly Profiler</title>
+    <link rel="stylesheet" href="/static/style.css?v=8">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+</head>
+<body>
+    <div id="reconnect-banner">
+        ⚠️ Live WebSocket telemetry stream disconnected. Reconnecting automatically...
+    </div>
+
+    <header>
+        <div class="brand">
+            <div class="brand-mark" aria-hidden="true">
+                <svg viewBox="0 0 36 36" role="presentation">
+                    <path d="M5 19h6l3.5-9 7 17 3.5-8h6" />
+                </svg>
+                <span class="pulse-dot" id="stream-pulse"></span>
+            </div>
+            <h1>ProcPulse AI</h1>
+            <span class="brand-subtitle">
+                SYSTEM OBSERVABILITY
+            </span>
+        </div>
+
+        <div class="header-right">
+            <div class="overhead-pill" title="ProcPulse Agent Self-Resource Overhead">
+                <span class="overhead-label">AGENT</span>
+                <span class="overhead-value"><span id="agent-cpu">0.0%</span> CPU</span>
+                <span class="overhead-divider"></span>
+                <span class="overhead-value"><span id="agent-rss">0 MB</span> RSS</span>
+            </div>
+
+            <a href="/api/reports/export.csv" class="btn" title="Download Anomaly & Telemetry Log as CSV">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3v9m0 0 3.5-3.5M10 12 6.5 8.5M4 13.5v3h12v-3" /></svg>
+                <span>Export data</span>
+            </a>
+            <a href="/api/reports/incident" target="_blank" class="btn" title="Open Print-Ready Incident Report">
+                <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 3.5h5l3 3v10H6zM11 3.5v3h3M8 10h4M8 13h4" /></svg>
+                <span>Incident report</span>
+            </a>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Suspicious Process Warning Banner -->
+        <div id="suspicious-container" class="suspicious-card">
+            <div class="suspicious-header">
+                <span>⚠️ SUSPICIOUS PROCESS ACTIVITY DETECTED</span>
+            </div>
+            <div id="suspicious-content" class="suspicious-reason">
+                <!-- Injected via JS -->
+            </div>
+        </div>
+
+        <section class="overview-heading" aria-label="System overview">
+            <div class="overview-copy">
+                <span class="eyebrow"><span class="eyebrow-index">01</span> REAL-TIME OPERATIONS</span>
+                <h2>System pulse,<br><span>at a glance.</span></h2>
+                <p>Monitor health, resource trends, active processes, and emerging anomalies in real time.</p>
+                <div class="stream-status">
+                    <span class="status-indicator" id="stream-status-indicator"></span>
+                    <span id="stream-status-text">Connecting to live telemetry</span>
+                    <span class="status-divider"></span>
+                    <span>60-second window</span>
+                </div>
+            </div>
+            <div class="hero-health">
+                <div class="health-score-container" title="System Health Score (0-100)" data-status="healthy">
+                    <div class="health-ring">
+                        <span class="health-val healthy" id="health-score-val">100.0</span>
+                        <span class="health-ring-unit">/ 100</span>
+                    </div>
+                    <div class="health-copy">
+                        <span class="health-label">SYSTEM HEALTH</span>
+                        <span class="health-status-text" id="health-status-text">HEALTHY</span>
+                        <span class="health-description">Composite health score</span>
+                    </div>
+                </div>
+                <div class="health-footnote"><span></span> Health score updates with telemetry</div>
+            </div>
+        </section>
+
+        <!-- 4-Card Top Metrics Ribbon -->
+        <section class="metrics-ribbon">
+            <!-- Card 1: CPU -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="metric-heading">
+                        <span class="metric-glyph" aria-hidden="true"><svg viewBox="0 0 20 20"><path d="M2 10h4l2-5 4 10 2-5h4" /></svg></span>
+                        CPU Utilization
+                    </span>
+                    <span id="cpu-core-count" class="metric-context">-- Cores</span>
+                </div>
+                <div class="kpi-main">
+                    <div class="card-value" id="val-cpu">0.0%</div>
+                    <svg class="kpi-sparkline" viewBox="0 0 100 30" role="img" aria-label="CPU utilization recent trend">
+                        <path class="spark-area" id="area-cpu"></path>
+                        <path class="spark-line" id="trend-cpu"></path>
+                    </svg>
+                </div>
+                <div class="card-subtext">
+                    <span>Load (1m/5m/15m):</span>
+                    <span id="val-load" class="mono">0.00, 0.00, 0.00</span>
+                </div>
+                <div class="progress-bg">
+                    <div class="progress-fill" id="bar-cpu" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- Card 2: Memory -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="metric-heading">
+                        <span class="metric-glyph" aria-hidden="true"><svg viewBox="0 0 20 20"><rect x="3" y="5" width="14" height="10" rx="1.5" /><path d="M6 8h2m4 0h2M6 12h8M6 3v2m4-2v2m4-2v2m-8 10v2m4-2v2m4-2v2" /></svg></span>
+                        Memory (RAM)
+                    </span>
+                    <span id="mem-usage-abs" class="metric-context">0 / 0 GB</span>
+                </div>
+                <div class="kpi-main">
+                    <div class="card-value" id="val-mem">0.0%</div>
+                    <svg class="kpi-sparkline" viewBox="0 0 100 30" role="img" aria-label="Memory utilization recent trend">
+                        <path class="spark-area" id="area-memory"></path>
+                        <path class="spark-line" id="trend-memory"></path>
+                    </svg>
+                </div>
+                <div class="card-subtext">
+                    <span>Swap Usage:</span>
+                    <span id="val-swap" class="mono">0.0%</span>
+                </div>
+                <div class="progress-bg">
+                    <div class="progress-fill" id="bar-mem" style="width: 0%;"></div>
+                </div>
+            </div>
+
+            <!-- Card 3: Disk I/O -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="metric-heading">
+                        <span class="metric-glyph" aria-hidden="true"><svg viewBox="0 0 20 20"><ellipse cx="10" cy="5" rx="6.5" ry="2.5" /><path d="M3.5 5v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5V5m-13 5v5c0 1.4 2.9 2.5 6.5 2.5s6.5-1.1 6.5-2.5v-5" /></svg></span>
+                        Disk Throughput
+                    </span>
+                    <span class="metric-context">Rate (MB/s)</span>
+                </div>
+                <div class="kpi-main">
+                    <div class="card-value" id="val-disk">0.0 <span class="value-unit">MB/s</span></div>
+                    <svg class="kpi-sparkline" viewBox="0 0 100 30" role="img" aria-label="Disk throughput recent trend">
+                        <path class="spark-area" id="area-disk"></path>
+                        <path class="spark-line" id="trend-disk"></path>
+                    </svg>
+                </div>
+                <div class="card-subtext">
+                    <span>Read: <span id="disk-read" class="mono">0.0</span> MB/s</span>
+                    <span>Write: <span id="disk-write" class="mono">0.0</span> MB/s</span>
+                </div>
+            </div>
+
+            <!-- Card 4: Network I/O -->
+            <div class="card">
+                <div class="card-title">
+                    <span class="metric-heading">
+                        <span class="metric-glyph" aria-hidden="true"><svg viewBox="0 0 20 20"><circle cx="4" cy="10" r="2" /><circle cx="15.5" cy="4" r="2" /><circle cx="15.5" cy="16" r="2" /><path d="m6 9 7.5-4m-7.5 6 7.5 4" /></svg></span>
+                        Network Bandwidth
+                    </span>
+                    <span class="metric-context">Rate (MB/s)</span>
+                </div>
+                <div class="kpi-main">
+                    <div class="card-value" id="val-net">0.0 <span class="value-unit">MB/s</span></div>
+                    <svg class="kpi-sparkline" viewBox="0 0 100 30" role="img" aria-label="Network bandwidth recent trend">
+                        <path class="spark-area" id="area-network"></path>
+                        <path class="spark-line" id="trend-network"></path>
+                    </svg>
+                </div>
+                <div class="card-subtext">
+                    <span>Recv: <span id="net-recv" class="mono">0.0</span> MB/s</span>
+                    <span>Sent: <span id="net-sent" class="mono">0.0</span> MB/s</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Live Streaming Charts Grid -->
+        <section class="charts-grid">
+            <!-- Chart 1: CPU & Load -->
+            <div class="chart-card">
+                <h3>
+                    <span>CPU Utilization & Load Average</span>
+                    <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">Last 60 seconds</span>
+                </h3>
+                <div class="chart-container">
+                    <canvas id="chart-cpu"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 2: Memory & Swap -->
+            <div class="chart-card">
+                <h3>
+                    <span>Memory & Swap Allocation</span>
+                    <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">Last 60 seconds</span>
+                </h3>
+                <div class="chart-container">
+                    <canvas id="chart-mem"></canvas>
+                </div>
+            </div>
+
+            <!-- Chart 3: Disk & Network I/O -->
+            <div class="chart-card" style="grid-column: 1 / -1;">
+                <h3>
+                    <span>Storage Disk & Network I/O Rates (MB/s)</span>
+                    <span style="font-size: 11px; font-weight: normal; color: var(--text-muted);">Real-Time Transfer Speed</span>
+                </h3>
+                <div class="chart-container">
+                    <canvas id="chart-io"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- Lower Section: Top Processes & Anomaly Feed -->
+        <section class="split-grid">
+            <!-- Left: Top Processes Table -->
+            <div class="card">
+                <div class="card-title process-title">
+                    <span>Top Active Processes</span>
+                    <div class="process-tools">
+                        <label for="proc-sort">Sort</label>
+                        <select id="proc-sort" aria-label="Sort processes by">
+                            <option value="cpu_percent">CPU</option>
+                            <option value="memory_percent">Memory</option>
+                        </select>
+                        <input type="search" id="proc-search" placeholder="Search..." aria-label="Filter processes">
+                    </div>
+                </div>
+                <div class="process-summary">
+                    <span><span class="process-live-dot"></span><strong id="proc-result-count">0 processes</strong></span>
+                    <span>Click a process to inspect</span>
+                </div>
+                <div class="table-container">
+                    <table id="procs-table">
+                        <thead>
+                            <tr>
+                                <th>PID</th>
+                                <th>Name</th>
+                                <th>CPU %</th>
+                                <th>Mem %</th>
+                                <th>RSS</th>
+                                <th>Threads</th>
+                                <th>FDs</th>
+                                <th>State</th>
+                            </tr>
+                        </thead>
+                        <tbody id="procs-tbody">
+                            <tr><td colspan="8" style="text-align: center; color: var(--text-muted);">Collecting process telemetry...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <section class="process-detail-panel" id="process-detail-panel" aria-label="Selected process details" aria-live="polite" hidden></section>
+            </div>
+
+            <!-- Right: Anomaly Timeline Feed -->
+            <div class="card">
+                <div class="card-title">
+                    <span>Live Anomaly Detection Feed</span>
+                    <span id="anomaly-count-badge" style="background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 10px; font-size: 11px;">0 Events</span>
+                </div>
+                <div class="timeline-feed" id="anomaly-feed">
+                    <div style="text-align: center; color: var(--text-muted); padding: 30px 10px;">
+                        Baseline warm-up in progress. No anomalies detected.
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/static/app.js?v=8"></script>
+</body>
+</html>
